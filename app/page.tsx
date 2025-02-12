@@ -140,7 +140,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="text-center space-y-4">
             <Train className="w-16 h-16 mx-auto text-primary" />
-            <h1 className="text-4xl font-bold text-primary">Berlin Transport</h1>
+            <h1 className="text-4xl font-bold text-primary">BVG View</h1>
             <p className="text-muted-foreground">
               Track multiple stations in Berlin&apos;s public transport network
             </p>
@@ -182,6 +182,8 @@ export default function Home() {
                           setSelectedStops(prev => [...prev, stop]);
                           addRecentStation(stop);
                           getDepartures(stop.id);
+                          setStops([]);
+                          setSearchQuery("");
                         }
                       }}
                     >
