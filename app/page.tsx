@@ -130,23 +130,24 @@ export default function Home() {
     updateDepartures();
 
     // Set up interval for updates
-    const interval = setInterval(updateDepartures, 30000);
+    const interval = setInterval(updateDepartures, 10_000);
     return () => clearInterval(interval);
   }, [selectedStops]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <div className="container mx-auto sm:px-4 py-4 sm:py-8">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8" style={{ minWidth: "300px" }}>
           <div className="text-center space-y-4">
             <Train className="w-16 h-16 mx-auto text-primary" />
             <h1 className="text-4xl font-bold text-primary">BVG View</h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground px-2">
               Track multiple stations in Berlin&apos;s public transport network
             </p>
           </div>
 
-          <Card className="p-6">
+          {/* Search */}
+          <Card className="p-2 border-0 sm:border sm:p-6 shadow-none sm:shadow-sm">
             <form onSubmit={searchStops} className="space-y-4">
               <div className="flex gap-2">
                 <Input
@@ -196,9 +197,10 @@ export default function Home() {
             </form>
           </Card>
 
+          {/* Recent Stations */}
           {recentStations.length > 0 && (
-            <Card className="p-6">
-              <div className="flex justify-between items-center mb-4">
+            <Card className="px-3 pb-4 pt-2 sm:p-6 sm:pt-4 rounded-none sm:rounded-lg sm:shadow-sm">
+              <div className="flex justify-between items-center mb-2 sm:mb-4">
                 <h2 className="text-lg font-semibold">Recent Stations</h2>
                 <Button
                   variant="ghost"
@@ -234,17 +236,21 @@ export default function Home() {
               </div>
             </Card>
           )}
-
+  
+          {/* Departures */}
           {selectedStops.length > 0 && (
-            <Card className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">All Departures</h2>
-                <div className="flex gap-2">
+            <Card className="border-x-0 sm:border pb-4 pt-2 sm:p-6 sm:pt-4 rounded-none sm:rounded-lg sm:shadow-sm">
+              <div className="p-0 ps-3 sm:ps-0 flex flex-wrap flex-row justify-between mb-4 gap-2">
+                <h2 className="text-lg font-semibold mr-2">
+                  Departures
+                </h2>
+                <div className="flex flex-wrap">
                   {selectedStops.map((stop) => (
                     <Button
                       key={stop.id}
                       variant="ghost"
                       size="sm"
+                      className="pl-0"
                       onClick={() => {
                         setSelectedStops(prev => prev.filter(s => s.id !== stop.id));
                         setDepartures(prev => {
@@ -254,7 +260,7 @@ export default function Home() {
                         });
                       }}
                     >
-                      <X className="w-4 h-4 mr-2" />
+                      <X className="w-4 h-4 mr-2"/>
                       {stop.name}
                     </Button>
                   ))}
@@ -265,35 +271,33 @@ export default function Home() {
                 {getAllDepartures().map((departure, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-card rounded-lg border"
+                    className="flex items-center justify-between p-3 py-2 sm:py-3 bg-card rounded-none sm:rounded-lg border-y sm:border"
                     style={{
                       borderColor: getTransitColor(departure.type)
                     }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="h-8 w-8 rounded-full flex items-center justify-center font-semibold text-white"
-                        style={{
-                          backgroundColor: getTransitColor(departure.type)
-                        }}
-                      >
-                        {departure.line}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{departure.direction}</p>
-                          <span className="text-sm text-muted-foreground">
-                            from {departure.stationName}
-                          </span>
-                        </div>
-                        {departure.platform !== 'N/A' && (
-                          <p className="text-sm text-muted-foreground">
-                            Platform {departure.platform}
-                          </p>
-                        )}
-                      </div>
+                    <div
+                      className="h-10 w-10 rounded-full flex flex-shrink-0 items-center justify-center font-semibold text-white me-4"
+                      style={{
+                        backgroundColor: getTransitColor(departure.type)
+                      }}
+                    >
+                      {departure.line}
                     </div>
-                    <div className="text-right">
+                    <div className="flex-auto">
+                      <div className="flex flex-wrap items-center">
+                        <p className="font-medium me-3">{departure.direction}</p>
+                        <span className="text-sm text-muted-foreground">
+                          from {departure.stationName}
+                        </span>
+                      </div>
+                      {departure.platform !== 'N/A' && (
+                        <p className="text-sm text-muted-foreground">
+                          Platform {departure.platform}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right ms-3">
                       <div className="font-medium">
                         {formatTime(departure.when)}
                       </div>
