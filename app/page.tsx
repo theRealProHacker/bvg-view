@@ -140,7 +140,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8" style={{ minWidth: "300px" }}>
           <div className="text-center space-y-4">
             <Train className="w-16 h-16 mx-auto text-primary" />
-            <h1 className="text-4xl font-bold text-primary">BVG View</h1>
+            <h1 className="text-4xl font-bold text-primary">BVG View (Test)</h1>
             <p className="text-muted-foreground px-2">
               Track multiple stations in Berlin&apos;s public transport network
             </p>
