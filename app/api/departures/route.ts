@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const HAFAS_API = "https://v5.vbb.transport.rest/stops";
+const HAFAS_API = "https://v6.vbb.transport.rest/stops";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
