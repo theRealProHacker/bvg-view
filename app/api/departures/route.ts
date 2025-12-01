@@ -30,12 +30,15 @@ export async function GET(request: Request) {
 
     const data = await response.json();
     
-    if (!Array.isArray(data)) {
+    // v6 API returns { departures: [...] } instead of an array directly
+    const departuresArray = Array.isArray(data) ? data : (data.departures || []);
+    
+    if (!Array.isArray(departuresArray)) {
       return NextResponse.json([]);
     }
     
     // Transform the response to match our interface
-    const departures = data.map((departure: any) => ({
+    const departures = departuresArray.map((departure: any) => ({
       line: departure.line?.name || "N/A",
       direction: departure.direction || "Unknown",
       when: departure.when || null,
