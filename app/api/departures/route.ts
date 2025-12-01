@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const HAFAS_API = "https://v5.vbb.transport.rest/stops";
+const HAFAS_API = "https://v6.vbb.transport.rest/stops";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -30,12 +30,11 @@ export async function GET(request: Request) {
 
     const data = await response.json();
     
-    if (!Array.isArray(data)) {
-      return NextResponse.json([]);
-    }
+    // v6 API returns { departures: [...] } instead of an array directly
+    const departuresArray = Array.isArray(data) ? data : (data?.departures || []);
     
     // Transform the response to match our interface
-    const departures = data.map((departure: any) => ({
+    const departures = departuresArray.map((departure: any) => ({
       line: departure.line?.name || "N/A",
       direction: departure.direction || "Unknown",
       when: departure.when || null,

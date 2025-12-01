@@ -19,6 +19,7 @@ export default function Home() {
   const [selectedStops, setSelectedStops] = useState<Stop[]>([]);
   const [departures, setDepartures] = useState<Record<string, Departure[]>>({});
   const [loading, setLoading] = useState(false);
+  const [departuresLoading, setDeparturesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { recentStations, addRecentStation, clearRecentStations } = useRecentStations();
 
@@ -50,6 +51,7 @@ export default function Home() {
   };
 
   const getDepartures = async (stopId: string) => {
+    setDeparturesLoading(true);
     try {
       const response = await fetch(`/api/departures?stopId=${stopId}`);
       if (!response.ok) {
@@ -62,6 +64,8 @@ export default function Home() {
       setDepartures(prev => ({ ...prev, [stopId]: data }));
     } catch (error) {
       console.error("Error fetching departures:", error);
+    } finally {
+      setDeparturesLoading(false);
     }
   };
 
@@ -312,7 +316,7 @@ export default function Home() {
                 ))}
                 {getAllDepartures().length === 0 && (
                   <p className="text-center text-muted-foreground py-4">
-                    No departures found
+                    {departuresLoading ? "Loading ..." : "No departures found"}
                   </p>
                 )}
               </div>
