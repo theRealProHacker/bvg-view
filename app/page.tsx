@@ -53,6 +53,8 @@ export default function Home() {
     }
   };
 
+  const selectedIdsRef = useRef<Set<string>>(new Set());
+
   const getDepartures = async (stopId: string): Promise<boolean> => {
     setDeparturesLoading(true);
     try {
@@ -64,7 +66,11 @@ export default function Home() {
       if (data.error) {
         throw new Error(data.error);
       }
-      setDepartures(prev => ({ ...prev, [stopId]: data }));
+      // A slow response for a stop the user removed in the meantime must
+      // not resurrect its entry.
+      if (selectedIdsRef.current.has(stopId)) {
+        setDepartures(prev => ({ ...prev, [stopId]: data }));
+      }
       return true;
     } catch (error) {
       console.error("Error fetching departures:", error);
@@ -74,13 +80,14 @@ export default function Home() {
     }
   };
 
-  // One polling tick over all selected stops. A cycle counts as failed only
-  // when EVERY stop fails; after 3 failed cycles polling pauses until the
-  // user resumes (keeps a dead upstream from being hammered every 10s).
+  // One polling tick over all selected stops. getDepartures never rejects;
+  // a cycle counts as failed only when EVERY stop reports failure. After 3
+  // failed cycles polling pauses until the user resumes (keeps a dead
+  // upstream from being hammered every 10s).
   const updateDepartures = useCallback(async (stops: Stop[]) => {
     if (stops.length === 0) return;
-    const results = await Promise.allSettled(stops.map(s => getDepartures(s.id)));
-    const allFailed = results.every(r => r.status !== "fulfilled" || r.value === false);
+    const results = await Promise.all(stops.map(s => getDepartures(s.id)));
+    const allFailed = results.every(ok => !ok);
     if (allFailed) {
       failedCycles.current += 1;
       if (failedCycles.current >= 3) {
@@ -99,9 +106,20 @@ export default function Home() {
   const resumePolling = () => {
     failedCycles.current = 0;
     setDeparturesError(null);
+    // Un-pausing re-runs the polling effect, which does the initial fetch —
+    // no manual fetch here, or every stop would be fetched twice.
     setPollingPaused(false);
-    updateDepartures(selectedStops);
   };
+
+  // Changing the stop set is a fresh start: clear any pause/error so a
+  // newly added stop is actually polled instead of sitting behind a stale
+  // "API not responding" banner.
+  useEffect(() => {
+    selectedIdsRef.current = new Set(selectedStops.map(s => s.id));
+    failedCycles.current = 0;
+    setDeparturesError(null);
+    setPollingPaused(false);
+  }, [selectedStops]);
 
   const getTransitColor = (type: string) => {
     switch (type.toLowerCase()) {

@@ -84,15 +84,18 @@ describe("GET /api/stops", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("502s on malformed upstream JSON", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("not json", { status: 200 }))
-    );
+  it("502s on malformed upstream JSON (fresh body per attempt)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(new Response("not json", { status: 200 }))
+      );
+    vi.stubGlobal("fetch", fetchMock);
     const res = await getStops(
       new Request("http://localhost/api/stops?query=x")
     );
     expect(res.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // malformed JSON is retried
   });
 });
 
@@ -146,15 +149,16 @@ describe("GET /api/departures", () => {
     expect(res.status).toBe(400);
   });
 
-  it("maps an upstream 404 (unknown stop) to a 4xx, not 502", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("no such stop", { status: 404 }))
-    );
+  it("maps an upstream 404 (unknown stop) to a 4xx without retrying", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("no such stop", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
     const res = await getDepartures(
       new Request("http://localhost/api/departures?stopId=nope")
     );
     expect(res.status).toBe(404);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("502s on an unexpected response shape", async () => {
@@ -171,21 +175,20 @@ describe("GET /api/departures", () => {
 
 describe("fetchVbb retry/timeout behavior", () => {
   it("504s after timeouts on every attempt", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(
-        (_url: string, init: RequestInit) =>
-          new Promise((_resolve, reject) => {
-            const signal = init.signal as AbortSignal;
-            signal.addEventListener("abort", () => reject(signal.reason));
-          })
-      )
+    const fetchMock = vi.fn().mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          const signal = init.signal as AbortSignal;
+          signal.addEventListener("abort", () => reject(signal.reason));
+        })
     );
+    vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchVbb("/locations?query=x", FAST)).rejects.toMatchObject({
       name: "VbbError",
       status: 504,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(2); // initial + 1 retry, both timed out
   });
 
   it("recovers when the retry succeeds", async () => {

@@ -87,6 +87,7 @@ export async function fetchVbb(
       });
 
       if (response.status === 429) {
+        void response.body?.cancel();
         throw new VbbError(
           "Upstream rate limit",
           429,
@@ -94,10 +95,12 @@ export async function fetchVbb(
         );
       }
       if (response.status >= 400 && response.status < 500) {
+        void response.body?.cancel();
         throw new VbbError(`Upstream rejected request`, response.status);
       }
       if (!response.ok) {
         // 5xx — retryable
+        void response.body?.cancel();
         lastError = new VbbError(`Upstream error ${response.status}`, 502);
         continue;
       }

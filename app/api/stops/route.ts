@@ -24,7 +24,12 @@ export async function GET(request: Request) {
           details: error.message,
           ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
         },
-        { status: error.status }
+        {
+          status: error.status,
+          ...(error.retryAfter
+            ? { headers: { "Retry-After": error.retryAfter } }
+            : {}),
+        }
       );
     }
     if (error instanceof ZodError) {
