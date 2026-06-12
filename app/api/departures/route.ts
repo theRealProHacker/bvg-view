@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-
-const HAFAS_API = "https://v6.vbb.transport.rest/stops";
+import { ZodError } from "zod";
+import { fetchVbb, parseDepartures, VbbError } from "@/lib/vbb";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,39 +14,30 @@ export async function GET(request: Request) {
   }
 
   try {
-    const response = await fetch(
-      `${HAFAS_API}/${stopId}/departures?duration=30&results=10`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'BerlinTransport/1.0'
-        }
-      }
+    const data = await fetchVbb(
+      `/stops/${encodeURIComponent(stopId)}/departures?duration=30&results=10`
     );
-    
-    if (!response.ok) {
-      throw new Error(`API responded with status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // v6 API returns { departures: [...] } instead of an array directly
-    const departuresArray = Array.isArray(data) ? data : (data?.departures || []);
-    
-    // Transform the response to match our interface
-    const departures = departuresArray.map((departure: any) => ({
-      line: departure.line?.name || "N/A",
-      direction: departure.direction || "Unknown",
-      when: departure.when || null,
-      platform: departure.platform || "N/A",
-      type: departure.line?.product || "Unknown",
-    }));
-
-    return NextResponse.json(departures);
+    return NextResponse.json(parseDepartures(data));
   } catch (error) {
     console.error("Error fetching departures:", error);
+    if (error instanceof VbbError) {
+      return NextResponse.json(
+        {
+          error: "Failed to fetch departures",
+          details: error.message,
+          ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
+        },
+        { status: error.status }
+      );
+    }
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Failed to fetch departures", details: "Unexpected upstream response shape" },
+        { status: 502 }
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to fetch departures", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Failed to fetch departures", details: "Unknown error" },
       { status: 500 }
     );
   }

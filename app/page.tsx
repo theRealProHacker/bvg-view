@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, Clock, MapPin, Train, X } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, Clock, MapPin, Train, X, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,6 +21,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [departuresLoading, setDeparturesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pollingPaused, setPollingPaused] = useState(false);
+  const [departuresError, setDeparturesError] = useState<string | null>(null);
+  const failedCycles = useRef(0);
   const { recentStations, addRecentStation, clearRecentStations } = useRecentStations();
 
   const searchStops = async (e?: React.FormEvent) => {
@@ -50,7 +53,7 @@ export default function Home() {
     }
   };
 
-  const getDepartures = async (stopId: string) => {
+  const getDepartures = async (stopId: string): Promise<boolean> => {
     setDeparturesLoading(true);
     try {
       const response = await fetch(`/api/departures?stopId=${stopId}`);
@@ -62,11 +65,42 @@ export default function Home() {
         throw new Error(data.error);
       }
       setDepartures(prev => ({ ...prev, [stopId]: data }));
+      return true;
     } catch (error) {
       console.error("Error fetching departures:", error);
+      return false;
     } finally {
       setDeparturesLoading(false);
     }
+  };
+
+  // One polling tick over all selected stops. A cycle counts as failed only
+  // when EVERY stop fails; after 3 failed cycles polling pauses until the
+  // user resumes (keeps a dead upstream from being hammered every 10s).
+  const updateDepartures = useCallback(async (stops: Stop[]) => {
+    if (stops.length === 0) return;
+    const results = await Promise.allSettled(stops.map(s => getDepartures(s.id)));
+    const allFailed = results.every(r => r.status !== "fulfilled" || r.value === false);
+    if (allFailed) {
+      failedCycles.current += 1;
+      if (failedCycles.current >= 3) {
+        setPollingPaused(true);
+        setDeparturesError(
+          "Live updates paused — the departures API is not responding."
+        );
+      }
+    } else {
+      failedCycles.current = 0;
+      setDeparturesError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const resumePolling = () => {
+    failedCycles.current = 0;
+    setDeparturesError(null);
+    setPollingPaused(false);
+    updateDepartures(selectedStops);
   };
 
   const getTransitColor = (type: string) => {
@@ -126,17 +160,15 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const updateDepartures = () => {
-      selectedStops.forEach(stop => getDepartures(stop.id));
-    };
+    if (pollingPaused) return;
 
     // Initial fetch
-    updateDepartures();
+    updateDepartures(selectedStops);
 
     // Set up interval for updates
-    const interval = setInterval(updateDepartures, 10_000);
+    const interval = setInterval(() => updateDepartures(selectedStops), 10_000);
     return () => clearInterval(interval);
-  }, [selectedStops]);
+  }, [selectedStops, pollingPaused, updateDepartures]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted">
@@ -271,6 +303,16 @@ export default function Home() {
                 </div>
               </div>
 
+              {departuresError && (
+                <div className="flex items-center justify-between gap-2 mb-4 p-3 rounded-lg border border-destructive/50 bg-destructive/10">
+                  <p className="text-sm text-destructive">{departuresError}</p>
+                  <Button variant="outline" size="sm" onClick={resumePolling}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              )}
+
               <div className="space-y-3">
                 {getAllDepartures().map((departure, index) => (
                   <div
@@ -306,10 +348,12 @@ export default function Home() {
                         {formatTime(departure.when)}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {new Date(departure.when).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        })}
+                        {departure.when
+                          ? new Date(departure.when).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })
+                          : "—"}
                       </div>
                     </div>
                   </div>
