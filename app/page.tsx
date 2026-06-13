@@ -156,7 +156,7 @@ export default function Home() {
     return `${hours}h ${minutes}m`;
   };
 
-  // One soonest departure per line (110, U3, S1 …), up to 3 lines, sorted by departure time
+  // Up to 3 departures per line (110, U3, S1 …), sorted by departure time within each line
   const getAllDepartures = (): DepartureWithStation[] => {
     const allDepartures: DepartureWithStation[] = [];
 
@@ -172,17 +172,13 @@ export default function Home() {
       return timeA - timeB;
     });
 
-    const seen = new Set<string>();
-    const result: DepartureWithStation[] = [];
-    for (const d of allDepartures) {
-      const key = d.line;
-      if (!seen.has(key)) {
-        seen.add(key);
-        result.push(d);
-        if (result.length === 3) break;
-      }
-    }
-    return result;
+    const countPerLine = new Map<string, number>();
+    return allDepartures.filter(d => {
+      const count = countPerLine.get(d.line) ?? 0;
+      if (count >= 3) return false;
+      countPerLine.set(d.line, count + 1);
+      return true;
+    });
   };
 
   useEffect(() => {
