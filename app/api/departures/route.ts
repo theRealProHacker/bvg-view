@@ -14,8 +14,9 @@ export async function GET(request: Request) {
   }
 
   try {
+    const duration = Math.max(5, Math.min(180, Number(searchParams.get("duration") ?? 40)));
     const data = await fetchVbb(
-      `/stops/${encodeURIComponent(stopId)}/departures?duration=30&results=10`
+      `/stops/${encodeURIComponent(stopId)}/departures?duration=${duration}&results=100`
     );
     return NextResponse.json(parseDepartures(data));
   } catch (error) {

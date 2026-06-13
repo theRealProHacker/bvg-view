@@ -23,6 +23,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [pollingPaused, setPollingPaused] = useState(false);
   const [departuresError, setDeparturesError] = useState<string | null>(null);
+  const [duration, setDuration] = useState(40);
   const failedCycles = useRef(0);
   const { recentStations, addRecentStation, clearRecentStations } = useRecentStations();
 
@@ -55,10 +56,10 @@ export default function Home() {
 
   const selectedIdsRef = useRef<Set<string>>(new Set());
 
-  const getDepartures = async (stopId: string): Promise<boolean> => {
+  const getDepartures = async (stopId: string, dur: number): Promise<boolean> => {
     setDeparturesLoading(true);
     try {
-      const response = await fetch(`/api/departures?stopId=${stopId}`);
+      const response = await fetch(`/api/departures?stopId=${stopId}&duration=${dur}`);
       if (!response.ok) {
         throw new Error("Failed to fetch departures");
       }
@@ -84,9 +85,9 @@ export default function Home() {
   // a cycle counts as failed only when EVERY stop reports failure. After 3
   // failed cycles polling pauses until the user resumes (keeps a dead
   // upstream from being hammered every 10s).
-  const updateDepartures = useCallback(async (stops: Stop[]) => {
+  const updateDepartures = useCallback(async (stops: Stop[], dur: number) => {
     if (stops.length === 0) return;
-    const results = await Promise.all(stops.map(s => getDepartures(s.id)));
+    const results = await Promise.all(stops.map(s => getDepartures(s.id, dur)));
     const allFailed = results.every(ok => !ok);
     if (allFailed) {
       failedCycles.current += 1;
@@ -184,13 +185,11 @@ export default function Home() {
   useEffect(() => {
     if (pollingPaused) return;
 
-    // Initial fetch
-    updateDepartures(selectedStops);
+    updateDepartures(selectedStops, duration);
 
-    // Set up interval for updates
-    const interval = setInterval(() => updateDepartures(selectedStops), 10_000);
+    const interval = setInterval(() => updateDepartures(selectedStops, duration), 10_000);
     return () => clearInterval(interval);
-  }, [selectedStops, pollingPaused, updateDepartures]);
+  }, [selectedStops, pollingPaused, updateDepartures, duration]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted">
@@ -240,7 +239,7 @@ export default function Home() {
                         if (!selectedStops.find(s => s.id === stop.id)) {
                           setSelectedStops(prev => [...prev, stop]);
                           addRecentStation(stop);
-                          getDepartures(stop.id);
+                          getDepartures(stop.id, duration);
                           setStops([]);
                           setSearchQuery("");
                         }
@@ -283,7 +282,7 @@ export default function Home() {
                           location: { latitude: 0, longitude: 0 }
                         };
                         setSelectedStops(prev => [...prev, stop]);
-                        getDepartures(station.id);
+                        getDepartures(station.id, duration);
                       }
                     }}
                   >
@@ -299,9 +298,20 @@ export default function Home() {
           {selectedStops.length > 0 && (
             <Card className="border-x-0 sm:border pb-4 pt-2 sm:p-6 sm:pt-4 rounded-none sm:rounded-lg sm:shadow-sm">
               <div className="p-0 ps-3 sm:ps-0 flex flex-wrap flex-row justify-between mb-4 gap-2">
-                <h2 className="text-lg font-semibold mr-2">
-                  Departures
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">Departures</h2>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Input
+                      type="number"
+                      min={5}
+                      max={180}
+                      value={duration}
+                      onChange={e => setDuration(Math.max(5, Math.min(180, Number(e.target.value))))}
+                      className="w-16 h-7 text-sm px-2"
+                    />
+                    <span>min</span>
+                  </div>
+                </div>
                 <div className="flex flex-wrap">
                   {selectedStops.map((stop) => (
                     <Button
