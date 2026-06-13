@@ -156,7 +156,7 @@ export default function Home() {
     return `${hours}h ${minutes}m`;
   };
 
-  // One soonest departure per transport type, up to 3 types, sorted by departure time
+  // One soonest departure per line (110, U3, S1 …), up to 3 lines, sorted by departure time
   const getAllDepartures = (): DepartureWithStation[] => {
     const allDepartures: DepartureWithStation[] = [];
 
@@ -175,7 +175,7 @@ export default function Home() {
     const seen = new Set<string>();
     const result: DepartureWithStation[] = [];
     for (const d of allDepartures) {
-      const key = d.type.toLowerCase();
+      const key = d.line;
       if (!seen.has(key)) {
         seen.add(key);
         result.push(d);
