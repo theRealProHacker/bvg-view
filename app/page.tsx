@@ -156,25 +156,33 @@ export default function Home() {
     return `${hours}h ${minutes}m`;
   };
 
-  // Combine all departures into a single sorted list
+  // One soonest departure per transport type, up to 3 types, sorted by departure time
   const getAllDepartures = (): DepartureWithStation[] => {
     const allDepartures: DepartureWithStation[] = [];
-    
+
     selectedStops.forEach(stop => {
-      const stopDepartures = departures[stop.id] || [];
-      stopDepartures.forEach(departure => {
-        allDepartures.push({
-          ...departure,
-          stationName: stop.name
-        });
+      (departures[stop.id] || []).forEach(departure => {
+        allDepartures.push({ ...departure, stationName: stop.name });
       });
     });
 
-    return allDepartures.sort((a, b) => {
+    allDepartures.sort((a, b) => {
       const timeA = a.when ? new Date(a.when).getTime() : Infinity;
       const timeB = b.when ? new Date(b.when).getTime() : Infinity;
       return timeA - timeB;
     });
+
+    const seen = new Set<string>();
+    const result: DepartureWithStation[] = [];
+    for (const d of allDepartures) {
+      const key = d.type.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(d);
+        if (result.length === 3) break;
+      }
+    }
+    return result;
   };
 
   useEffect(() => {
